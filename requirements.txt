@@ -1,0 +1,10 @@
+streamlit
+langchain>=1.0
+langchain-core
+langchain-community
+langchain-chroma
+langchain-text-splitters
+chromadb
+dashscope
+requests
+pyyaml

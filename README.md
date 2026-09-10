@@ -61,6 +61,22 @@ react_agent_customer_service/
 └── utils/                 # 配置加载/文件处理/日志/路径工具
 ```
 
+## 工程难点与解法
+
+| 难点 | 解法 | 效果 |
+|---|---|---|
+| 身份参数幻觉：LLM 无法得知"当前用户"，报告数据随机错配 | ToolRuntime 从前端注入 user_id/month/city，不进模型参数、不暴露进 function schema | 报告链路命中率 25% → 100% |
+| 工具调用失败可能中断对话链路 | wrap_tool_call 中间件统一捕获异常并记录参数/结果日志；天气 API 设 8s 超时 + 降级兜底文案 | 故障注入演练通过，单点失败不阻断对话 |
+| RAG 幻觉 | 提示词强约束"仅基于参考资料作答、信息不足显式拒答"；系统提示词设 5 次工具调用止损上限防 ReAct 死循环 | 答案可溯源（条目级标签） |
+| 客服/报告双场景提示词冲突 | fill_context_for_report 信号弹 + monitor_tool 置标记 + dynamic_prompt 运行时路由 | 单 Agent 双人格无冲突切换 |
+
+## 性能实测（2026-09，qwen3-max，自建基准脚本）
+
+- 5 篇 100+ 条目知识库全量构建（切分+向量化+入库）：**11s**
+- RAG 工具端到端：**P50 1.9s / P95 2.4s**（prompt 约束输出长度，延迟较无约束版本降约 3 倍）
+- ReAct 单工具问答端到端 ≈ 17.6s；多工具报告链（4 步编排）≈ 27.7s
+- 瓶颈定位：多轮模型调用串行；优化方向：工具并行调用、小模型路由、高频问答缓存
+
 ## 技术栈
 
-Python · LangChain 1.x（create_agent / middleware / ToolRuntime）· Chroma · 阿里云百炼 qwen3-max · DashScope Embedding · Streamlit · wttr.in
+Python · LangChain 1.x create_agent（middleware / ToolRuntime）· Chroma · 阿里云百炼 qwen3-max · DashScope Embedding · Streamlit · wttr.in
